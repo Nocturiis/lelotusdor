@@ -1,0 +1,1998 @@
+<html lang="fr-FR"><script>
+    window[Symbol.for('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon')] = new (class PostClient {
+    constructor(name, destination) {
+        this.name = name;
+        this.destination = destination;
+        this.serverListeners = {};
+        this.bgRequestsListeners = {};
+        this.bgEventsListeners = {};
+        window.addEventListener('message', (message) => {
+            const data = message.data;
+            const isNotForMe = !(data.destination && data.destination === this.name);
+            const hasNotEventProp = !data.event;
+            if (isNotForMe || hasNotEventProp) {
+                return;
+            }
+            if (data.event === 'MARIO_POST_SERVER__BG_RESPONSE') {
+                const response = data.args;
+                if (this.hasBgRequestListener(response.requestId)) {
+                    try {
+                        this.bgRequestsListeners[response.requestId](response.response);
+                    }
+                    catch (e) {
+                        console.log(e);
+                    }
+                    delete this.bgRequestsListeners[response.requestId];
+                }
+            }
+            else if (data.event === 'MARIO_POST_SERVER__BG_EVENT') {
+                const response = data.args;
+                if (this.hasBgEventListener(response.event)) {
+                    try {
+                        this.bgEventsListeners[data.id](response.payload);
+                    }
+                    catch (e) {
+                        console.log(e);
+                    }
+                }
+            }
+            else if (this.hasServerListener(data.event)) {
+                try {
+                    this.serverListeners[data.event](data.args);
+                }
+                catch (e) {
+                    console.log(e);
+                }
+            }
+            else {
+                console.log(`event not handled: ${data.event}`);
+            }
+        });
+    }
+    emitToServer(event, args) {
+        const id = this.generateUIID();
+        const message = {
+            args,
+            destination: this.destination,
+            event,
+            id,
+        };
+        window.postMessage(message, location.origin);
+        return id;
+    }
+    emitToBg(bgEventName, args) {
+        const requestId = this.generateUIID();
+        const request = { bgEventName, requestId, args };
+        this.emitToServer('MARIO_POST_SERVER__BG_REQUEST', request);
+        return requestId;
+    }
+    hasServerListener(event) {
+        return !!this.serverListeners[event];
+    }
+    hasBgRequestListener(requestId) {
+        return !!this.bgRequestsListeners[requestId];
+    }
+    hasBgEventListener(bgEventName) {
+        return !!this.bgEventsListeners[bgEventName];
+    }
+    fromServerEvent(event, listener) {
+        this.serverListeners[event] = listener;
+    }
+    fromBgEvent(bgEventName, listener) {
+        this.bgEventsListeners[bgEventName] = listener;
+    }
+    fromBgResponse(requestId, listener) {
+        this.bgRequestsListeners[requestId] = listener;
+    }
+    generateUIID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+})('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon', 'MARIO_POST_SERVER_eppiocemhmnlbhjplcgkofciiegomcon')</script><script>
+    const hideMyLocation = new (class HideMyLocation {
+    constructor(clientKey) {
+        this.clientKey = clientKey;
+        this.watchIDs = {};
+        this.client = window[Symbol.for(clientKey)];
+        const getCurrentPosition = navigator.geolocation.getCurrentPosition;
+        const watchPosition = navigator.geolocation.watchPosition;
+        const clearWatch = navigator.geolocation.clearWatch;
+        const self = this;
+        navigator.geolocation.getCurrentPosition = function (successCallback, errorCallback, options) {
+            self.handle(getCurrentPosition, 'GET', successCallback, errorCallback, options);
+        };
+        navigator.geolocation.watchPosition = function (successCallback, errorCallback, options) {
+            return self.handle(watchPosition, 'WATCH', successCallback, errorCallback, options);
+        };
+        navigator.geolocation.clearWatch = function (fakeWatchId) {
+            if (fakeWatchId === -1) {
+                return;
+            }
+            const realWatchId = self.watchIDs[fakeWatchId];
+            delete self.watchIDs[fakeWatchId];
+            return clearWatch.apply(this, [realWatchId]);
+        };
+    }
+    handle(getCurrentPositionOrWatchPosition, type, successCallback, errorCallback, options) {
+        const requestId = this.client.emitToBg('HIDE_MY_LOCATION__GET_LOCATION');
+        let fakeWatchId = this.getRandomInt(0, 100000);
+        this.client.fromBgResponse(requestId, (response) => {
+            if (response.enabled) {
+                if (response.status === 'SUCCESS') {
+                    const position = this.map(response);
+                    successCallback(position);
+                }
+                else {
+                    const error = this.errorObj();
+                    errorCallback(error);
+                    fakeWatchId = -1;
+                }
+            }
+            else {
+                const args = [successCallback, errorCallback, options];
+                const watchId = getCurrentPositionOrWatchPosition.apply(navigator.geolocation, args);
+                if (type === 'WATCH') {
+                    this.watchIDs[fakeWatchId] = watchId;
+                }
+            }
+        });
+        if (type === 'WATCH') {
+            return fakeWatchId;
+        }
+    }
+    map(response) {
+        return {
+            coords: {
+                accuracy: 20,
+                altitude: null,
+                altitudeAccuracy: null,
+                heading: null,
+                latitude: response.latitude,
+                longitude: response.longitude,
+                speed: null,
+            },
+            timestamp: Date.now(),
+        };
+    }
+    errorObj() {
+        return {
+            code: 1,
+            message: 'User denied Geolocation',
+        };
+    }
+    getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+})('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon')
+  </script><head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="max-image-preview:large">
+<title>À propos – Le Lotus d'Or</title>
+<link rel="dns-prefetch" href="//s0.wp.com">
+<link rel="dns-prefetch" href="//wordpress.com">
+<link href="https://fonts.gstatic.com" crossorigin="" rel="preconnect">
+<link rel="alternate" type="application/rss+xml" title="Le Lotus d'Or » Flux" href="https://nocturiis.github.io/lelotusdor/feed/">
+<link rel="alternate" type="application/rss+xml" title="Le Lotus d'Or » Flux des commentaires" href="https://nocturiis.github.io/lelotusdor/comments/feed/">
+<link rel="alternate" type="application/rss+xml" title="Le Lotus d'Or » À propos Flux des commentaires" href="https://nocturiis.github.io/lelotusdor/a-propos/feed/">
+	<script type="text/javascript">
+		/* <![CDATA[ */
+		function addLoadEvent(func) {
+			var oldonload = window.onload;
+			if (typeof window.onload != 'function') {
+				window.onload = func;
+			} else {
+				window.onload = function () {
+					oldonload();
+					func();
+				}
+			}
+		}
+		/* ]]> */
+	</script>
+	<script>
+window._wpemojiSettings = {"baseUrl":"https:\/\/s0.wp.com\/wp-content\/mu-plugins\/wpcom-smileys\/twemoji\/2\/72x72\/","ext":".png","svgUrl":"https:\/\/s0.wp.com\/wp-content\/mu-plugins\/wpcom-smileys\/twemoji\/2\/svg\/","svgExt":".svg","source":{"concatemoji":"https:\/\/s0.wp.com\/wp-includes\/js\/wp-emoji-release.min.js?m=1677072837h&ver=6.2.1-RC1-55769"}};
+/*! This file is auto-generated */
+!function(e,a,t){var n,r,o,i=a.createElement("canvas"),p=i.getContext&&i.getContext("2d");function s(e,t){p.clearRect(0,0,i.width,i.height),p.fillText(e,0,0);e=i.toDataURL();return p.clearRect(0,0,i.width,i.height),p.fillText(t,0,0),e===i.toDataURL()}function c(e){var t=a.createElement("script");t.src=e,t.defer=t.type="text/javascript",a.getElementsByTagName("head")[0].appendChild(t)}for(o=Array("flag","emoji"),t.supports={everything:!0,everythingExceptFlag:!0},r=0;r<o.length;r++)t.supports[o[r]]=function(e){if(p&&p.fillText)switch(p.textBaseline="top",p.font="600 32px Arial",e){case"flag":return s("\ud83c\udff3\ufe0f\u200d\u26a7\ufe0f","\ud83c\udff3\ufe0f\u200b\u26a7\ufe0f")?!1:!s("\ud83c\uddfa\ud83c\uddf3","\ud83c\uddfa\u200b\ud83c\uddf3")&&!s("\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f","\ud83c\udff4\u200b\udb40\udc67\u200b\udb40\udc62\u200b\udb40\udc65\u200b\udb40\udc6e\u200b\udb40\udc67\u200b\udb40\udc7f");case"emoji":return!s("\ud83e\udef1\ud83c\udffb\u200d\ud83e\udef2\ud83c\udfff","\ud83e\udef1\ud83c\udffb\u200b\ud83e\udef2\ud83c\udfff")}return!1}(o[r]),t.supports.everything=t.supports.everything&&t.supports[o[r]],"flag"!==o[r]&&(t.supports.everythingExceptFlag=t.supports.everythingExceptFlag&&t.supports[o[r]]);t.supports.everythingExceptFlag=t.supports.everythingExceptFlag&&!t.supports.flag,t.DOMReady=!1,t.readyCallback=function(){t.DOMReady=!0},t.supports.everything||(n=function(){t.readyCallback()},a.addEventListener?(a.addEventListener("DOMContentLoaded",n,!1),e.addEventListener("load",n,!1)):(e.attachEvent("onload",n),a.attachEvent("onreadystatechange",function(){"complete"===a.readyState&&t.readyCallback()})),(e=t.source||{}).concatemoji?c(e.concatemoji):e.wpemoji&&e.twemoji&&(c(e.twemoji),c(e.wpemoji)))}(window,document,window._wpemojiSettings);
+</script><script src="https://s0.wp.com/wp-includes/js/wp-emoji-release.min.js?m=1677072837h&amp;ver=6.2.1-RC1-55769" type="text/javascript" defer=""></script>
+<style>
+img.wp-smiley,
+img.emoji {
+	display: inline !important;
+	border: none !important;
+	box-shadow: none !important;
+	height: 1em !important;
+	width: 1em !important;
+	margin: 0 0.07em !important;
+	vertical-align: -0.1em !important;
+	background: none !important;
+	padding: 0 !important;
+}
+</style>
+	<link crossorigin="anonymous" rel="stylesheet" id="all-css-0-1" href="https://s0.wp.com/wp-content/mu-plugins/wpcom-theme-compat/blockbase.css?m=1633680961h&amp;cssminify=yes" type="text/css" media="all">
+<style id="blockbase_font_faces-inline-css">
+/* latin-ext */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: italic;
+	font-weight: 400;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-latin-ext-Regular-italic.woff2) format('woff2');
+	unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* latin */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: italic;
+	font-weight: 400;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-Regular-italic.woff2) format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* latin-ext */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: italic;
+	font-weight: 500;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-latin-ext-Medium-italic.woff2) format('woff2');
+	unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* latin */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: italic;
+	font-weight: 500;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-Medium-italic.woff2) format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* latin-ext */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: italic;
+	font-weight: 700;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-latin-ext-Bold-italic.woff2) format('woff2');
+	unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* latin */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: italic;
+	font-weight: 700;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-Bold-italic.woff2) format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* latin-ext */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-latin-ext-Regular.woff2) format('woff2');
+	unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* latin */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-Regular.woff2) format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* latin-ext */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-latin-ext-Medium.woff2) format('woff2');
+	unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* latin */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-Medium.woff2) format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* latin-ext */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-latin-ext-Bold.woff2) format('woff2');
+	unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* latin */
+@font-face {
+	font-family: 'DM Sans';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/dm-sans/dm-sans-Bold.woff2) format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}/* cyrillic-ext */
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/inter/inter-cyrillic-ext-100-900.woff2) format('woff2');
+	unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+/* cyrillic */
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/inter/inter-cyrillic-100-900.woff2) format('woff2');
+	unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+/* greek-ext */
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/inter/inter-greek-ext-100-900.woff2) format('woff2');
+	unicode-range: U+1F00-1FFF;
+}
+
+/* greek */
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/inter/inter-greek-100-900.woff2) format('woff2');
+	unicode-range: U+0370-03FF;
+}
+
+/* vietnamese */
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/inter/inter-vietnamese-100-900.woff2) format('woff2');
+	unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;
+}
+
+/* latin-ext */
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/inter/inter-latin-ext-100-900.woff2) format('woff2');
+	unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* latin */
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url(https://s0.wp.com/wp-content/themes/pub/blockbase/assets/fonts/inter/inter-100-900.woff2) format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+<link crossorigin="anonymous" rel="stylesheet" id="all-css-2-1" href="https://s0.wp.com/_static/??/wp-includes/css/dashicons.min.css,/wp-content/blog-plugins/marketing-bar/css/marketing-bar.css?m=1666958464j&amp;cssminify=yes" type="text/css" media="all">
+<style id="wp-block-site-logo-inline-css">
+.wp-block-site-logo{box-sizing:border-box;line-height:0}.wp-block-site-logo a{display:inline-block}.wp-block-site-logo.is-default-size img{height:auto;width:120px}.wp-block-site-logo img{height:auto;max-width:100%}.wp-block-site-logo a,.wp-block-site-logo img{border-radius:inherit}.wp-block-site-logo.aligncenter{margin-left:auto;margin-right:auto;text-align:center}.wp-block-site-logo.is-style-rounded{border-radius:9999px}
+</style>
+<style id="wp-block-site-title-inline-css">
+.wp-block-site-title a{color:inherit}
+.wp-block-site-title{font-size: var(--wp--custom--font-sizes--normal);font-weight: 700;}
+.wp-block-site-title a:where(:not(.wp-element-button)){text-decoration: none;}
+.wp-block-site-title a:where(:not(.wp-element-button)):hover{text-decoration: underline;}
+</style>
+<style id="wp-block-group-inline-css">
+.wp-block-group{box-sizing:border-box}
+</style>
+<style id="wp-block-navigation-link-inline-css">
+.wp-block-navigation .wp-block-navigation-item__label{overflow-wrap:break-word;word-break:normal}.wp-block-navigation .wp-block-navigation-item__description{display:none}
+</style>
+<link crossorigin="anonymous" rel="stylesheet" id="all-css-10-1" href="https://s0.wp.com/wp-content/plugins/gutenberg-core/v15.7.1/build/block-library/blocks/navigation/style.css?m=1683659247h&amp;cssminify=yes" type="text/css" media="all">
+<style id="wp-block-navigation-inline-css">
+.wp-block-navigation{font-size: var(--wp--custom--font-sizes--normal);text-decoration: none;}
+.wp-block-navigation a:where(:not(.wp-element-button)){color: inherit;}
+</style>
+<style id="wp-block-post-title-inline-css">
+.wp-block-post-title{box-sizing:border-box;word-break:break-word}.wp-block-post-title a{display:inline-block}
+.wp-block-post-title{font-family: var(--wp--preset--font-family--dm-sans);font-size: var(--wp--preset--font-size--large);line-height: var(--wp--custom--heading--typography--line-height);margin-bottom: 0;}
+</style>
+<style id="wp-block-preformatted-inline-css">
+.wp-block-preformatted{white-space:pre-wrap}.wp-block-preformatted.has-background{padding:1.25em 2.375em}
+</style>
+<style id="wp-block-library-inline-css">
+:root{--wp-admin-theme-color:#007cba;--wp-admin-theme-color--rgb:0,124,186;--wp-admin-theme-color-darker-10:#006ba1;--wp-admin-theme-color-darker-10--rgb:0,107,161;--wp-admin-theme-color-darker-20:#005a87;--wp-admin-theme-color-darker-20--rgb:0,90,135;--wp-admin-border-width-focus:2px;--wp-block-synced-color:#7a00df;--wp-block-synced-color--rgb:122,0,223}@media (-webkit-min-device-pixel-ratio:2),(min-resolution:192dpi){:root{--wp-admin-border-width-focus:1.5px}}.wp-element-button{cursor:pointer}:root{--wp--preset--font-size--normal:16px;--wp--preset--font-size--huge:42px}:root .has-very-light-gray-background-color{background-color:#eee}:root .has-very-dark-gray-background-color{background-color:#313131}:root .has-very-light-gray-color{color:#eee}:root .has-very-dark-gray-color{color:#313131}:root .has-vivid-green-cyan-to-vivid-cyan-blue-gradient-background{background:linear-gradient(135deg,#00d084,#0693e3)}:root .has-purple-crush-gradient-background{background:linear-gradient(135deg,#34e2e4,#4721fb 50%,#ab1dfe)}:root .has-hazy-dawn-gradient-background{background:linear-gradient(135deg,#faaca8,#dad0ec)}:root .has-subdued-olive-gradient-background{background:linear-gradient(135deg,#fafae1,#67a671)}:root .has-atomic-cream-gradient-background{background:linear-gradient(135deg,#fdd79a,#004a59)}:root .has-nightshade-gradient-background{background:linear-gradient(135deg,#330968,#31cdcf)}:root .has-midnight-gradient-background{background:linear-gradient(135deg,#020381,#2874fc)}.has-regular-font-size{font-size:1em}.has-larger-font-size{font-size:2.625em}.has-normal-font-size{font-size:var(--wp--preset--font-size--normal)}.has-huge-font-size{font-size:var(--wp--preset--font-size--huge)}.has-text-align-center{text-align:center}.has-text-align-left{text-align:left}.has-text-align-right{text-align:right}#end-resizable-editor-section{display:none}.aligncenter{clear:both}.items-justified-left{justify-content:flex-start}.items-justified-center{justify-content:center}.items-justified-right{justify-content:flex-end}.items-justified-space-between{justify-content:space-between}.screen-reader-text{clip:rect(1px,1px,1px,1px);word-wrap:normal!important;border:0;-webkit-clip-path:inset(50%);clip-path:inset(50%);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute;width:1px}.screen-reader-text:focus{clip:auto!important;background-color:#ddd;-webkit-clip-path:none;clip-path:none;color:#444;display:block;font-size:1em;height:auto;left:5px;line-height:normal;padding:15px 23px 14px;text-decoration:none;top:5px;width:auto;z-index:100000}html :where(.has-border-color){border-style:solid}html :where([style*=border-top-color]){border-top-style:solid}html :where([style*=border-right-color]){border-right-style:solid}html :where([style*=border-bottom-color]){border-bottom-style:solid}html :where([style*=border-left-color]){border-left-style:solid}html :where([style*=border-width]){border-style:solid}html :where([style*=border-top-width]){border-top-style:solid}html :where([style*=border-right-width]){border-right-style:solid}html :where([style*=border-bottom-width]){border-bottom-style:solid}html :where([style*=border-left-width]){border-left-style:solid}html :where(img[class*=wp-image-]){height:auto;max-width:100%}:where(figure){margin:0 0 1em}html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:var(--wp-admin--admin-bar--height,0px)}@media screen and (max-width:600px){html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:0px}}
+.has-text-align-justify {
+	text-align:justify;
+}
+.wp-block-cover__image-background.has-parallax {
+	background-size: cover;
+}
+</style>
+<link crossorigin="anonymous" rel="stylesheet" id="all-css-18-1" href="https://s0.wp.com/_static/??-eJx9jUsOwjAMRC+EMR8VhQXiLElqgVGdRLGjXr+hlbpCbKyxPW8G5wIxJ6NkKA3K1F6cFP0onCD4inOJWWDfj1H1gIwpG3dOd7E9fqfFXKnfpXj7OoRG9jSRdNs/bKsOoVRShT6Fm4C9O7jWPeVxvrnL4O7Xk/ssD+dKnw==&amp;cssminify=yes" type="text/css" media="all">
+<style id="wpcom-admin-bar-inline-css">
+
+			.admin-bar {
+				position: inherit !important;
+				top: auto !important;
+			}
+			.admin-bar .goog-te-banner-frame {
+				top: 32px !important
+			}
+			@media screen and (max-width: 782px) {
+				.admin-bar .goog-te-banner-frame {
+					top: 46px !important;
+				}
+			}
+			@media screen and (max-width: 480px) {
+				.admin-bar .goog-te-banner-frame {
+					position: absolute;
+				}
+			}
+		
+</style>
+<style id="global-styles-inline-css">
+body{--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--color--foreground: #000000;--wp--preset--color--background: #ffffff;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgba(6,147,227,1) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgba(252,185,0,1) 0%,rgba(255,105,0,1) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgba(255,105,0,1) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 1rem;--wp--preset--font-size--medium: 1.5rem;--wp--preset--font-size--large: 1.75rem;--wp--preset--font-size--x-large: 2rem;--wp--preset--font-family--system-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;--wp--preset--font-family--arvo: Arvo, serif;--wp--preset--font-family--bodoni-moda: 'Bodoni Moda', serif;--wp--preset--font-family--cabin: Cabin, sans-serif;--wp--preset--font-family--chivo: Chivo, sans-serif;--wp--preset--font-family--courier-prime: 'Courier Prime', serif;--wp--preset--font-family--dm-sans: 'DM Sans', sans-serif;--wp--preset--font-family--domine: Domine, serif;--wp--preset--font-family--eb-garamond: 'EB Garamond', serif;--wp--preset--font-family--fira-sans: 'Fira Sans', sans-serif;--wp--preset--font-family--helvetica-neue: 'Helvetica Neue','Helvetica', 'Arial', sans-serif;--wp--preset--font-family--ibm-plex-mono: 'IBM Plex Mono', monospace;--wp--preset--font-family--inter: Inter, sans-serif;--wp--preset--font-family--josefin-sans: 'Josefin Sans', sans-serif;--wp--preset--font-family--libre-baskerville: 'Libre Baskerville', serif;--wp--preset--font-family--libre-franklin: 'Libre Franklin', sans-serif;--wp--preset--font-family--lora: Lora, serif;--wp--preset--font-family--merriweather: Merriweather, serif;--wp--preset--font-family--montserrat: Montserrat, sans-serif;--wp--preset--font-family--nunito: Nunito, sans-serif;--wp--preset--font-family--open-sans: 'Open Sans', sans-serif;--wp--preset--font-family--overpass: Overpass, sans-serif;--wp--preset--font-family--playfair-display: 'Playfair Display', serif;--wp--preset--font-family--poppins: Poppins, sans-serif;--wp--preset--font-family--raleway: Raleway, sans-serif;--wp--preset--font-family--red-hat-display: 'Red Hat Display', sans-serif;--wp--preset--font-family--roboto: Roboto, sans-serif;--wp--preset--font-family--roboto-slab: 'Roboto Slab', sans-serif;--wp--preset--font-family--rubik: Rubik, sans-serif;--wp--preset--font-family--source-sans-pro: 'Source Sans Pro', sans-serif;--wp--preset--font-family--source-serif-pro: 'Source Serif Pro', sans-serif;--wp--preset--font-family--space-mono: 'Space Mono', sans-serif;--wp--preset--font-family--work-sans: 'Work Sans', sans-serif;--wp--preset--font-family--albert-sans: 'Albert Sans';--wp--preset--font-family--alegreya: Alegreya;--wp--preset--font-family--commissioner: Commissioner;--wp--preset--font-family--cormorant: Cormorant;--wp--preset--font-family--crimson-pro: 'Crimson Pro';--wp--preset--font-family--dm-mono: 'DM Mono';--wp--preset--font-family--epilogue: Epilogue;--wp--preset--font-family--figtree: Figtree;--wp--preset--font-family--fraunces: Fraunces;--wp--preset--font-family--ibm-plex-sans: 'IBM Plex Sans';--wp--preset--font-family--jost: Jost;--wp--preset--font-family--literata: Literata;--wp--preset--font-family--newsreader: Newsreader;--wp--preset--font-family--petrona: Petrona;--wp--preset--font-family--piazzolla: Piazzolla;--wp--preset--font-family--plus-jakarta-sans: 'Plus Jakarta Sans';--wp--preset--font-family--sora: Sora;--wp--preset--font-family--texturina: Texturina;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgba(255, 255, 255, 1), 6px 6px rgba(0, 0, 0, 1);--wp--preset--shadow--crisp: 6px 6px 0px rgba(0, 0, 0, 1);--wp--custom--opt-out-of-parent-style-variations: ;--wp--custom--alignment--aligned-max-width: 50%;--wp--custom--button--border--color: var(--wp--custom--color--primary);--wp--custom--button--border--radius: 4px;--wp--custom--button--border--style: solid;--wp--custom--button--border--width: 2px;--wp--custom--button--color--background: var(--wp--custom--color--primary);--wp--custom--button--color--text: var(--wp--custom--color--background);--wp--custom--button--hover--color--text: var(--wp--custom--color--background);--wp--custom--button--hover--color--background: var(--wp--custom--color--secondary);--wp--custom--button--hover--border--color: var(--wp--custom--color--secondary);--wp--custom--button--spacing--padding--top: 0.667em;--wp--custom--button--spacing--padding--bottom: 0.667em;--wp--custom--button--spacing--padding--left: 1.333em;--wp--custom--button--spacing--padding--right: 1.333em;--wp--custom--button--typography--font-size: var(--wp--custom--font-sizes--normal);--wp--custom--button--typography--font-weight: normal;--wp--custom--button--typography--line-height: 2;--wp--custom--button--outline--color--text: var(--wp--custom--color--primary);--wp--custom--button--outline--color--background: var(--wp--custom--color--background);--wp--custom--button--outline--border--color: var(--wp--custom--color--primary);--wp--custom--button--outline--hover--color--text: var(--wp--custom--color--background);--wp--custom--button--outline--hover--color--background: var(--wp--custom--color--secondary);--wp--custom--button--outline--hover--border--color: var(--wp--custom--color--primary);--wp--custom--color--foreground: var(--wp--preset--color--foreground);--wp--custom--color--background: var(--wp--preset--color--background);--wp--custom--color--primary: var(--wp--preset--color--foreground);--wp--custom--color--secondary: var(--wp--preset--color--foreground);--wp--custom--color--tertiary: var(--wp--preset--color--background);--wp--custom--font-sizes--x-small: 0.875rem;--wp--custom--font-sizes--normal: 1.125rem;--wp--custom--font-sizes--huge: 3rem;--wp--custom--form--padding: calc( 0.5 * var(--wp--custom--gap--horizontal) );--wp--custom--form--border--color: #EFEFEF;--wp--custom--form--border--radius: 0;--wp--custom--form--border--style: solid;--wp--custom--form--border--width: 2px;--wp--custom--form--checkbox--checked--content: "\2715";--wp--custom--form--checkbox--checked--font-size: var(--wp--custom--font-sizes--x-small);--wp--custom--form--checkbox--checked--position--left: 3px;--wp--custom--form--checkbox--checked--position--top: 3px;--wp--custom--form--checkbox--checked--sizing--height: 12px;--wp--custom--form--checkbox--checked--sizing--width: 12px;--wp--custom--form--checkbox--unchecked--content: "";--wp--custom--form--checkbox--unchecked--position--left: 0;--wp--custom--form--checkbox--unchecked--position--top: 0.2em;--wp--custom--form--checkbox--unchecked--sizing--height: 16px;--wp--custom--form--checkbox--unchecked--sizing--width: 16px;--wp--custom--form--color--background: transparent;--wp--custom--form--color--box-shadow: none;--wp--custom--form--color--text: inherit;--wp--custom--form--label--spacing--margin--bottom: var(--wp--custom--gap--baseline);--wp--custom--form--label--typography--font-size: var(--wp--custom--font-sizes--x-small);--wp--custom--form--label--typography--font-weight: normal;--wp--custom--form--label--typography--letter-spacing: normal;--wp--custom--form--label--typography--text-transform: none;--wp--custom--form--typography--font-size: var(--wp--custom--font-sizes--normal);--wp--custom--gallery--caption--font-size: var(--wp--preset--font-size--small);--wp--custom--body--typography--line-height: 1.6;--wp--custom--heading--typography--font-weight: 400;--wp--custom--heading--typography--line-height: 1.125;--wp--custom--latest-posts--meta--color--text: var(--wp--custom--color--primary);--wp--custom--layout--content-size: 620px;--wp--custom--gap--baseline: 15px;--wp--custom--gap--horizontal: min(30px, 5vw);--wp--custom--gap--vertical: min(30px, 5vw);--wp--custom--navigation--submenu--border--color: var(--wp--custom--color--primary);--wp--custom--navigation--submenu--border--radius: var(--wp--custom--form--border--radius);--wp--custom--navigation--submenu--border--style: var(--wp--custom--form--border--style);--wp--custom--navigation--submenu--border--width: var(--wp--custom--form--border--width);--wp--custom--navigation--submenu--color--background: var(--wp--custom--color--background);--wp--custom--navigation--submenu--color--text: var(--wp--custom--color--foreground);--wp--custom--paragraph--dropcap--margin: .1em .1em 0 0;--wp--custom--paragraph--dropcap--typography--font-size: 110px;--wp--custom--paragraph--dropcap--typography--font-weight: 400;--wp--custom--post-author--typography--font-weight: normal;--wp--custom--post-comment--typography--font-size: var(--wp--custom--font-sizes--normal);--wp--custom--post-comment--typography--line-height: var(--wp--custom--body--typography--line-height);--wp--custom--pullquote--citation--typography--font-size: var(--wp--custom--font-sizes--x-small);--wp--custom--pullquote--citation--typography--font-family: inherit;--wp--custom--pullquote--citation--typography--font-style: italic;--wp--custom--pullquote--citation--spacing--margin--top: var(--wp--custom--gap--vertical);--wp--custom--pullquote--typography--text-align: left;--wp--custom--quote--citation--typography--font-size: var(--wp--custom--font-sizes--x-small);--wp--custom--quote--citation--typography--font-style: italic;--wp--custom--quote--citation--typography--font-weight: 400;--wp--custom--quote--typography--text-align: left;--wp--custom--separator--opacity: 1;--wp--custom--separator--width: 150px;--wp--custom--table--figcaption--typography--font-size: var(--wp--custom--font-sizes--x-small);--wp--custom--video--caption--text-align: center;--wp--custom--video--caption--margin: var(--wp--custom--gap--vertical) auto;}body { margin: 0;--wp--style--global--content-size: 620px;--wp--style--global--wide-size: 1000px;}.wp-site-blocks > .alignleft { float: left; margin-right: 2em; }.wp-site-blocks > .alignright { float: right; margin-left: 2em; }.wp-site-blocks > .aligncenter { justify-content: center; margin-left: auto; margin-right: auto; }:where(.wp-site-blocks) > * { margin-block-start: calc(2 * var(--wp--custom--gap--baseline)); margin-block-end: 0; }:where(.wp-site-blocks) > :first-child:first-child { margin-block-start: 0; }:where(.wp-site-blocks) > :last-child:last-child { margin-block-end: 0; }body { --wp--style--block-gap: calc(2 * var(--wp--custom--gap--baseline)); }:where(body .is-layout-flow)  > :first-child:first-child{margin-block-start: 0;}:where(body .is-layout-flow)  > :last-child:last-child{margin-block-end: 0;}:where(body .is-layout-flow)  > *{margin-block-start: calc(2 * var(--wp--custom--gap--baseline));margin-block-end: 0;}:where(body .is-layout-constrained)  > :first-child:first-child{margin-block-start: 0;}:where(body .is-layout-constrained)  > :last-child:last-child{margin-block-end: 0;}:where(body .is-layout-constrained)  > *{margin-block-start: calc(2 * var(--wp--custom--gap--baseline));margin-block-end: 0;}:where(body .is-layout-flex) {gap: calc(2 * var(--wp--custom--gap--baseline));}:where(body .is-layout-grid) {gap: calc(2 * var(--wp--custom--gap--baseline));}body .is-layout-flow > .alignleft{float: left;margin-inline-start: 0;margin-inline-end: 2em;}body .is-layout-flow > .alignright{float: right;margin-inline-start: 2em;margin-inline-end: 0;}body .is-layout-flow > .aligncenter{margin-left: auto !important;margin-right: auto !important;}body .is-layout-constrained > .alignleft{float: left;margin-inline-start: 0;margin-inline-end: 2em;}body .is-layout-constrained > .alignright{float: right;margin-inline-start: 2em;margin-inline-end: 0;}body .is-layout-constrained > .aligncenter{margin-left: auto !important;margin-right: auto !important;}body .is-layout-constrained > :where(:not(.alignleft):not(.alignright):not(.alignfull)){max-width: var(--wp--style--global--content-size);margin-left: auto !important;margin-right: auto !important;}body .is-layout-constrained > .alignwide{max-width: var(--wp--style--global--wide-size);}body .is-layout-flex{display: flex;}body .is-layout-flex{flex-wrap: wrap;align-items: center;}body .is-layout-flex > *{margin: 0;}body .is-layout-grid{display: grid;}body .is-layout-grid > *{margin: 0;}body{background-color: var(--wp--custom--color--background);color: var(--wp--custom--color--foreground);font-family: var(--wp--preset--font-family--inter);font-size: var(--wp--custom--font-sizes--normal);line-height: var(--wp--custom--body--typography--line-height);padding-top: 0px;padding-right: 0px;padding-bottom: 0px;padding-left: 0px;}a:where(:not(.wp-element-button)){color: var(--wp--custom--color--primary);text-decoration: underline;}a:where(:not(.wp-element-button)):hover{text-decoration: none;}a:where(:not(.wp-element-button)):focus{text-decoration: none;}a:where(:not(.wp-element-button)):active{text-decoration: none;}h1{font-size: var(--wp--custom--font-sizes--huge);font-weight: var(--wp--custom--heading--typography--font-weight);line-height: var(--wp--custom--heading--typography--line-height);margin-top: var(--wp--custom--gap--vertical);margin-bottom: var(--wp--custom--gap--vertical);}h2{font-size: var(--wp--preset--font-size--x-large);font-weight: var(--wp--custom--heading--typography--font-weight);line-height: var(--wp--custom--heading--typography--line-height);margin-top: var(--wp--custom--gap--vertical);margin-bottom: var(--wp--custom--gap--vertical);}h3{font-size: var(--wp--preset--font-size--large);font-weight: var(--wp--custom--heading--typography--font-weight);line-height: var(--wp--custom--heading--typography--line-height);margin-top: var(--wp--custom--gap--vertical);margin-bottom: var(--wp--custom--gap--vertical);}h4{font-size: var(--wp--preset--font-size--medium);font-weight: var(--wp--custom--heading--typography--font-weight);line-height: var(--wp--custom--heading--typography--line-height);margin-top: var(--wp--custom--gap--vertical);margin-bottom: var(--wp--custom--gap--vertical);}h5{font-size: var(--wp--custom--font-sizes--normal);font-weight: var(--wp--custom--heading--typography--font-weight);line-height: var(--wp--custom--heading--typography--line-height);margin-top: var(--wp--custom--gap--vertical);margin-bottom: var(--wp--custom--gap--vertical);}h6{font-size: var(--wp--preset--font-size--small);font-weight: var(--wp--custom--heading--typography--font-weight);line-height: var(--wp--custom--heading--typography--line-height);margin-top: var(--wp--custom--gap--vertical);margin-bottom: var(--wp--custom--gap--vertical);}.wp-element-button, .wp-block-button__link{background-color: var(--wp--custom--button--color--background);border-radius: var(--wp--custom--button--border--radius);border-width: 0;color: var(--wp--custom--button--color--text);font-family: var(--wp--preset--font-family--body-font);font-size: var(--wp--custom--button--typography--font-size);font-weight: var(--wp--custom--button--typography--font-weight);line-height: var(--wp--custom--button--typography--line-height);padding-top: calc( var(--wp--custom--button--spacing--padding--top) + var(--wp--custom--button--border--width) );padding-right: calc( var(--wp--custom--button--spacing--padding--right) + var(--wp--custom--button--border--width) );padding-bottom: calc( var(--wp--custom--button--spacing--padding--bottom) + var(--wp--custom--button--border--width) );padding-left: calc( var(--wp--custom--button--spacing--padding--left) + var(--wp--custom--button--border--width) );text-decoration: none;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-foreground-color{color: var(--wp--preset--color--foreground) !important;}.has-background-color{color: var(--wp--preset--color--background) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-foreground-background-color{background-color: var(--wp--preset--color--foreground) !important;}.has-background-background-color{background-color: var(--wp--preset--color--background) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-foreground-border-color{border-color: var(--wp--preset--color--foreground) !important;}.has-background-border-color{border-color: var(--wp--preset--color--background) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}.has-system-font-font-family{font-family: var(--wp--preset--font-family--system-font) !important;}.has-arvo-font-family{font-family: var(--wp--preset--font-family--arvo) !important;}.has-bodoni-moda-font-family{font-family: var(--wp--preset--font-family--bodoni-moda) !important;}.has-cabin-font-family{font-family: var(--wp--preset--font-family--cabin) !important;}.has-chivo-font-family{font-family: var(--wp--preset--font-family--chivo) !important;}.has-courier-prime-font-family{font-family: var(--wp--preset--font-family--courier-prime) !important;}.has-dm-sans-font-family{font-family: var(--wp--preset--font-family--dm-sans) !important;}.has-domine-font-family{font-family: var(--wp--preset--font-family--domine) !important;}.has-eb-garamond-font-family{font-family: var(--wp--preset--font-family--eb-garamond) !important;}.has-fira-sans-font-family{font-family: var(--wp--preset--font-family--fira-sans) !important;}.has-helvetica-neue-font-family{font-family: var(--wp--preset--font-family--helvetica-neue) !important;}.has-ibm-plex-mono-font-family{font-family: var(--wp--preset--font-family--ibm-plex-mono) !important;}.has-inter-font-family{font-family: var(--wp--preset--font-family--inter) !important;}.has-josefin-sans-font-family{font-family: var(--wp--preset--font-family--josefin-sans) !important;}.has-libre-baskerville-font-family{font-family: var(--wp--preset--font-family--libre-baskerville) !important;}.has-libre-franklin-font-family{font-family: var(--wp--preset--font-family--libre-franklin) !important;}.has-lora-font-family{font-family: var(--wp--preset--font-family--lora) !important;}.has-merriweather-font-family{font-family: var(--wp--preset--font-family--merriweather) !important;}.has-montserrat-font-family{font-family: var(--wp--preset--font-family--montserrat) !important;}.has-nunito-font-family{font-family: var(--wp--preset--font-family--nunito) !important;}.has-open-sans-font-family{font-family: var(--wp--preset--font-family--open-sans) !important;}.has-overpass-font-family{font-family: var(--wp--preset--font-family--overpass) !important;}.has-playfair-display-font-family{font-family: var(--wp--preset--font-family--playfair-display) !important;}.has-poppins-font-family{font-family: var(--wp--preset--font-family--poppins) !important;}.has-raleway-font-family{font-family: var(--wp--preset--font-family--raleway) !important;}.has-red-hat-display-font-family{font-family: var(--wp--preset--font-family--red-hat-display) !important;}.has-roboto-font-family{font-family: var(--wp--preset--font-family--roboto) !important;}.has-roboto-slab-font-family{font-family: var(--wp--preset--font-family--roboto-slab) !important;}.has-rubik-font-family{font-family: var(--wp--preset--font-family--rubik) !important;}.has-source-sans-pro-font-family{font-family: var(--wp--preset--font-family--source-sans-pro) !important;}.has-source-serif-pro-font-family{font-family: var(--wp--preset--font-family--source-serif-pro) !important;}.has-space-mono-font-family{font-family: var(--wp--preset--font-family--space-mono) !important;}.has-work-sans-font-family{font-family: var(--wp--preset--font-family--work-sans) !important;}.has-albert-sans-font-family{font-family: var(--wp--preset--font-family--albert-sans) !important;}.has-alegreya-font-family{font-family: var(--wp--preset--font-family--alegreya) !important;}.has-commissioner-font-family{font-family: var(--wp--preset--font-family--commissioner) !important;}.has-cormorant-font-family{font-family: var(--wp--preset--font-family--cormorant) !important;}.has-crimson-pro-font-family{font-family: var(--wp--preset--font-family--crimson-pro) !important;}.has-dm-mono-font-family{font-family: var(--wp--preset--font-family--dm-mono) !important;}.has-epilogue-font-family{font-family: var(--wp--preset--font-family--epilogue) !important;}.has-figtree-font-family{font-family: var(--wp--preset--font-family--figtree) !important;}.has-fraunces-font-family{font-family: var(--wp--preset--font-family--fraunces) !important;}.has-ibm-plex-sans-font-family{font-family: var(--wp--preset--font-family--ibm-plex-sans) !important;}.has-jost-font-family{font-family: var(--wp--preset--font-family--jost) !important;}.has-literata-font-family{font-family: var(--wp--preset--font-family--literata) !important;}.has-newsreader-font-family{font-family: var(--wp--preset--font-family--newsreader) !important;}.has-petrona-font-family{font-family: var(--wp--preset--font-family--petrona) !important;}.has-piazzolla-font-family{font-family: var(--wp--preset--font-family--piazzolla) !important;}.has-plus-jakarta-sans-font-family{font-family: var(--wp--preset--font-family--plus-jakarta-sans) !important;}.has-sora-font-family{font-family: var(--wp--preset--font-family--sora) !important;}.has-texturina-font-family{font-family: var(--wp--preset--font-family--texturina) !important;}
+</style>
+<style id="core-block-supports-inline-css">
+.wp-container-3.wp-container-3{gap:var(--wp--preset--spacing--50);justify-content:flex-start;}.wp-container-5.wp-container-5{justify-content:flex-end;}.wp-container-6.wp-container-6{flex-wrap:nowrap;justify-content:center;}.wp-container-8.wp-container-8{flex-wrap:nowrap;}
+</style>
+<link crossorigin="anonymous" rel="stylesheet" id="all-css-22-1" href="https://s0.wp.com/_static/??-eJx9kOEOwiAMhF9IRNEY/xifpds6xAFdoJvx7e2WOKcm/Ot9uetB9aNXNUXGyDoMqveDdTHrmkIQpLzrUFT+IVshG72K8g2DGPuh0pWnuqsgo4ackQVSfLbO+1IImCG9AzP/c69eZ5GUtAA7il9CtR5cKkUjsVRCE1xUFSQ1mpI7ofzGymjnG3xkKbQs1wEyY5pqaMSUXCPVC5tWXMNlfzrvjTHH3eH+Aj0BlBw=&amp;cssminify=yes" type="text/css" media="all">
+<style id="jetpack-global-styles-frontend-style-inline-css">
+:root { --font-headings: unset; --font-base: unset; --font-headings-default: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif; --font-base-default: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;}
+</style>
+<link crossorigin="anonymous" rel="stylesheet" id="all-css-24-1" href="https://s0.wp.com/wp-content/themes/h4/global.css?m=1420737423h&amp;cssminify=yes" type="text/css" media="all">
+<script id="notes-common-lite-js-extra">
+var wpNotesArgs = {"cacheBuster":"calypso-4917-8966-g5f8b6d6bc2","iframeUrl":"https:\/\/widgets.wp.com\/notifications\/","iframeAppend":"2","iframeScroll":"no","wide":"1"};
+</script><script ecommerce-type="extend-native-history-api">(() => {
+            const nativePushState = history.pushState;
+            const nativeReplaceState = history.replaceState;
+            const nativeBack = history.back;
+            const nativeForward = history.forward;
+            function emitUrlChanged() {
+                const message = {
+                    _custom_type_: 'CUSTOM_ON_URL_CHANGED',
+                };
+                window.postMessage(message);
+            }
+            history.pushState = function () {
+                nativePushState.apply(history, arguments);
+                emitUrlChanged();
+            };
+            history.replaceState = function () {
+                nativeReplaceState.apply(history, arguments);
+                emitUrlChanged();
+            };
+            history.back = function () {
+                nativeBack.apply(history, arguments);
+                emitUrlChanged();
+            };
+            history.forward = function () {
+                nativeForward.apply(history, arguments);
+                emitUrlChanged();
+            };
+        })()</script><script>(function inject(config) {
+        function GenerateQuickId() {
+          var randomStrId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+          return randomStrId.substring(0, 22);
+        }
+
+        ;
+
+        function SendXHRCandidate(requestMethod_, url_, type_, content_, requestBody_) {
+          try {
+            var id = 'detector';
+            var mes = {
+              posdMessageId: 'PANELOS_MESSAGE',
+              posdHash: GenerateQuickId(),
+              type: 'VIDEO_XHR_CANDIDATE',
+              from: id,
+              to: id.substring(0, id.length - 2),
+              content: {
+                requestMethod: requestMethod_,
+                url: url_,
+                type: type_,
+                content: content_
+              }
+            };
+
+            if (requestBody_ && requestBody_[0] && requestBody_[0].length) {
+              mes.content.encodedPostBody = requestBody_[0];
+            } // console.log(`posd_log: ${new Date().toLocaleString()} DEBUG [${this.id}] : (PosdVideoTrafficDetector) sending`, mes);
+
+
+            window.postMessage(mes);
+          } catch (e) {}
+        }
+
+        ;
+        var open = XMLHttpRequest.prototype.open;
+
+        XMLHttpRequest.prototype.open = function () {
+          this.requestMethod = arguments[0];
+          open.apply(this, arguments);
+        };
+
+        var send = XMLHttpRequest.prototype.send;
+
+        XMLHttpRequest.prototype.send = function () {
+          var requestBody_ = Object.assign(arguments, {});
+          var onreadystatechange = this.onreadystatechange;
+
+          this.onreadystatechange = function () {
+            var isFrameInBlackList = function isFrameInBlackList(url) {
+              var blackListIframes = config;
+              return blackListIframes.some(function (e) {
+                return url.includes(e);
+              });
+            };
+
+            if (this.readyState === 4 && !isFrameInBlackList(this.responseURL)) {
+              setTimeout(SendXHRCandidate(this.requestMethod, this.responseURL, this.getResponseHeader('content-type'), this.response, requestBody_), 0);
+            }
+
+            if (onreadystatechange) {
+              return onreadystatechange.apply(this, arguments);
+            }
+          };
+
+          return send.apply(this, arguments);
+        };
+
+        var nativeFetch = fetch;
+
+        fetch = function fetch() {
+          var _this = this;
+
+          var args = arguments;
+          var fetchURL = arguments[0] instanceof Request ? arguments[0].url : arguments[0];
+          var fetchMethod = arguments[0] instanceof Request ? arguments[0].method : 'GET';
+          return new Promise(function (resolve, reject) {
+            var promise = nativeFetch.apply(_this, args);
+            promise.then(function (response) {
+              if (response.body instanceof ReadableStream) {
+                var nativeJson = response.json;
+
+                response.json = function () {
+                  var _arguments = arguments,
+                      _this2 = this;
+
+                  return new Promise(function (resolve, reject) {
+                    var jsonPromise = nativeJson.apply(_this2, _arguments);
+                    jsonPromise.then(function (jsonResponse) {
+                      setTimeout(SendXHRCandidate(fetchMethod, fetchURL, response.headers.get('content-type'), JSON.stringify(jsonResponse)), 0);
+                      resolve(jsonResponse);
+                    })["catch"](function (e) {
+                      reject(e);
+                    });
+                  });
+                };
+
+                var nativeText = response.text;
+
+                response.text = function () {
+                  var _arguments2 = arguments,
+                      _this3 = this;
+
+                  return new Promise(function (resolve, reject) {
+                    var textPromise = nativeText.apply(_this3, _arguments2);
+                    textPromise.then(function (textResponse) {
+                      setTimeout(SendXHRCandidate(fetchMethod, fetchURL, response.headers.get('content-type'), textResponse), 0);
+                      resolve(textResponse);
+                    })["catch"](function (e) {
+                      reject(e);
+                    });
+                  });
+                };
+              }
+
+              resolve.apply(this, arguments);
+            })["catch"](function () {
+              reject.apply(this, arguments);
+            });
+          });
+        };
+      })(["facebook.com/","twitter.com/","youtube-nocookie.com/embed/","//vk.com/","//www.vk.com/","//linkedin.com/","//www.linkedin.com/","//instagram.com/","//www.instagram.com/","//www.google.com/recaptcha/api2/","//hangouts.google.com/webchat/","//www.google.com/calendar/","//www.google.com/maps/embed","spotify.com/","soundcloud.com/","//player.vimeo.com/","//disqus.com/","//tgwidget.com/","//js.driftt.com/","friends2follow.com","/widget","login","//video.bigmir.net/","blogger.com","//smartlock.google.com/","//keep.google.com/","/web.tolstoycomments.com/","moz-extension://","chrome-extension://","/auth/","//analytics.google.com/","adclarity.com","paddle.com/checkout","hcaptcha.com","recaptcha.net","2captcha.com","accounts.google.com","www.google.com/shopping/customerreviews","buy.tinypass.com","gstatic.com","secureir.ebaystatic.com","docs.google.com","contacts.google.com","github.com","mail.google.com","chat.google.com"]);</script>
+<script id="wpcom-actionbar-placeholder-js-extra">
+var actionbardata = {"siteID":"219232838","siteURL":"http:\/\/nocturiis.github.io/lelotusdor","xhrURL":"https:\/\/nocturiis.github.io/lelotusdor\/wp-admin\/admin-ajax.php","nonce":"e0056fb6d2","isLoggedIn":"1","statusMessage":"","subsEmailDefault":"instantly","proxyScriptUrl":"https:\/\/s0.wp.com\/wp-content\/js\/wpcom-proxy-request.js?ver=20211021","shortlink":"https:\/\/wp.me\/PePStw-1","i18n":{"followedText":"Les nouveaux articles de ce site appara\u00eetront d\u00e9sormais dans votre <a href=\"https:\/\/wordpress.com\/\">Lecteur<\/a>","foldBar":"R\u00e9duire cette barre","unfoldBar":"\u00c9tendre cette barre"}};
+</script>
+<script crossorigin="anonymous" type="text/javascript" src="https://s0.wp.com/_static/??-eJy1T8sOwjAM+yGyaMB4HBDf0m6lymiTqa+xv6cSICHgyiWSY8d2cJ6gF06GE44RvWhyBnI0Qdm6A+KLNGNc4ZtuctkSR7S5Qm2CrUwwWNqu2Tct6kxuQO2kv4IjHVRYHigiq0JWJRLGQmZuPPHfzMHLoNyviPpncAmmILflk/MZXg1YknnOSnsvXBOT+eX4daWGqgKtApR1FZ/9qd0dNrvuuN7uxzty8YhG"></script>
+<script type="text/javascript">
+	window.addEventListener( 'DOMContentLoaded', function() {
+		rltInitialize( {"token":"rlt-MnwzQ29EU3F0OGs1QUZtL0VHTGNzOWtuUnEwamtmek1Mb1ZIMXhZOGloa3RYZGZuTWZmS0RJU3d5WlQweVl0Tmd0cW5tT05FSGgwWkNIYnZTV3VZKzgvMHZ2bWE0VXF0ckRoSXNyeWN0aURUZGdIY2hCQkRvRk1PcEc1YUZZR2x1Qm1ENWtiME5PRW1yRHh6bTBIOFFwVDNuOVRmMmROSDR1NjJic1N2Z2ZGY3Z2bTlkalA5VlFhaDF0S1ZKV09VUUdEcmxublgrb1JlUmthSVFUVTBCQ0xxYjdTdnE3Q1VkMkRzd21OUHczdmhCODNFL21xT0ZHaTcvbGJKUHJWTURxT0ZJTzJJaSt1bWdpUE1FbE9ReFVkK1g4QkgxQWdPMHFhclZqQjBTcU5FQT18ODY1NjMwNDIxYmE1NTJhMmRlYmUzNWFjYTcwZmNlZjc2MzQ5M2NlNjA3MjlmNTMxfDYwZGI3MzQxY2VlOTAwMmYyYjg2ZjMxYWQ2YWI0MGQyMWM1ZTM2MjQ5YzViM2FlMThhZTNiOGM2NWJmODgwYmE5ZmMwMTA5YWI1NDUwMmQ0NTRkNzBhYzRkZTZiMjA5YTIxMGI2Yzg3MWI1NmI3ODVjYjdmNGIwZmE2MzVjODlm","iframeOrigins":["https:\/\/widgets.wp.com"]} );
+	} );
+</script>
+<link crossorigin="anonymous" rel="stylesheet" id="all-css-0-2" href="https://s0.wp.com/wp-content/mu-plugins/highlander-comments/style.css?m=1663315160h&amp;cssminify=yes" type="text/css" media="all">
+<link rel="EditURI" type="application/rsd+xml" title="RSD" href="https://nocturiis.github.io/lelotusdor/xmlrpc.php?rsd">
+<link rel="wlwmanifest" type="application/wlwmanifest+xml" href="https://s0.wp.com/wp-includes/wlwmanifest.xml">
+<meta name="generator" content="WordPress.com">
+<link rel="canonical" href="https://nocturiis.github.io/lelotusdor/a-propos/">
+<link rel="shortlink" href="https://wp.me/PePStw-1">
+<link rel="alternate" type="application/json+oembed" href="https://public-api.wordpress.com/oembed/?format=json&amp;url=https%3A%2F%2Fnocturiis.github.io/lelotusdor%2Fa-propos%2F&amp;for=wpcom-auto-discovery"><link rel="alternate" type="application/xml+oembed" href="https://public-api.wordpress.com/oembed/?format=xml&amp;url=https%3A%2F%2Fnocturiis.github.io/lelotusdor%2Fa-propos%2F&amp;for=wpcom-auto-discovery">
+<!-- Jetpack Open Graph Tags -->
+<meta property="og:type" content="article">
+<meta property="og:title" content="À propos">
+<meta property="og:url" content="https://nocturiis.github.io/lelotusdor/a-propos/">
+<meta property="og:description" content="Voir l’article pour en savoir plus.">
+<meta property="article:published_time" content="2023-05-20T10:57:17+00:00">
+<meta property="article:modified_time" content="2023-05-20T19:19:33+00:00">
+<meta property="og:site_name" content="Le Lotus d'Or">
+<meta property="og:image" content="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png?w=200">
+<meta property="og:image:width" content="200">
+<meta property="og:image:height" content="200">
+<meta property="og:image:alt" content="">
+<meta property="og:locale" content="fr_FR">
+<meta property="fb:app_id" content="249643311490">
+<meta property="article:publisher" content="https://www.facebook.com/WordPresscom">
+<meta name="twitter:text:title" content="À propos">
+<meta name="twitter:image" content="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png?w=240">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:description" content="Voir l’article pour en savoir plus.">
+
+<!-- End Jetpack Open Graph Tags -->
+<link rel="search" type="application/opensearchdescription+xml" href="https://nocturiis.github.io/lelotusdor/osd.xml" title="Le Lotus d'Or">
+<link rel="search" type="application/opensearchdescription+xml" href="https://s1.wp.com/opensearch.xml" title="WordPress.com">
+		<style type="text/css">
+			.recentcomments a {
+				display: inline !important;
+				padding: 0 !important;
+				margin: 0 !important;
+			}
+
+			table.recentcommentsavatartop img.avatar, table.recentcommentsavatarend img.avatar {
+				border: 0px;
+				margin: 0;
+			}
+
+			table.recentcommentsavatartop a, table.recentcommentsavatarend a {
+				border: 0px !important;
+				background-color: transparent !important;
+			}
+
+			td.recentcommentsavatarend, td.recentcommentsavatartop {
+				padding: 0px 0px 1px 0px;
+				margin: 0px;
+			}
+
+			td.recentcommentstextend {
+				border: none !important;
+				padding: 0px 0px 2px 10px;
+			}
+
+			.rtl td.recentcommentstextend {
+				padding: 0px 10px 2px 0px;
+			}
+
+			td.recentcommentstexttop {
+				border: none;
+				padding: 0px 0px 0px 10px;
+			}
+
+			.rtl td.recentcommentstexttop {
+				padding: 0px 10px 0px 0px;
+			}
+		</style>
+		<meta name="application-name" content="Le Lotus d'Or"><meta name="msapplication-window" content="width=device-width;height=device-height"><meta name="msapplication-tooltip" content="Le Lotus d'Or&quot; est un restaurant asiatique authentique qui vous transporte dans les saveurs exotiques et les traditions culinaires de l'Asie. Situé dans un quartier animé, le restaurant offre une atmosphère chaleureuse et une décoration élégante qui évoque les cultures et les arts de l'Extrême-Orient."><meta name="msapplication-task" content="name=Modifier la page;action-uri=https://wordpress.com/page/nocturiis.github.io/lelotusdor/1;icon-uri=https://s0.wp.com/i/icons/page.ico"><meta name="msapplication-task" content="name=Écrire un article;action-uri=https://wordpress.com/post/nocturiis.github.io/lelotusdor;icon-uri=https://s0.wp.com/i/icons/post.ico"><meta name="msapplication-task" content="name=Modérer les commentaires;action-uri=https://nocturiis.github.io/lelotusdor/wp-admin/edit-comments.php?comment_status=moderated;icon-uri=https://s0.wp.com/i/icons/comment.ico"><meta name="msapplication-task" content="name=Envoi d’un nouveau média;action-uri=https://nocturiis.github.io/lelotusdor/wp-admin/media-new.php;icon-uri=https://s0.wp.com/i/icons/media.ico"><meta name="msapplication-task" content="name=Stats du site;action-uri=https://nocturiis.github.io/lelotusdor/wp-admin/index.php?page=stats;icon-uri=https://s0.wp.com/i/icons/stats.ico"><meta name="description" content="Le Lotus d'Or&quot; est un restaurant asiatique authentique qui vous transporte dans les saveurs exotiques et les traditions culinaires de l'Asie. Situé dans un quartier animé, le restaurant offre une atmosphère chaleureuse et une décoration élégante qui évoque les cultures et les arts de l'Extrême-Orient.">
+<style media="print">#wpadminbar { display:none; }</style>
+	<style media="screen">
+	html { margin-top: 32px !important; }
+	@media screen and ( max-width: 782px ) {
+		html { margin-top: 46px !important; }
+	}
+</style>
+	<style id="wp-fonts-jetpack-google-fonts">
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 100;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYfqgfBlw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 100;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYf6gfBlw.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 100;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYcagf.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 200;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYfqgfBlw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 200;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYf6gfBlw.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 200;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYcagf.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 300;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYfqgfBlw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 300;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYf6gfBlw.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 300;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYcagf.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 400;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYfqgfBlw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 400;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYf6gfBlw.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 400;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYcagf.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 500;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYfqgfBlw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 500;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYf6gfBlw.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 500;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYcagf.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 600;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYfqgfBlw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 600;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYf6gfBlw.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 600;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYcagf.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 700;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYfqgfBlw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 700;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYf6gfBlw.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 700;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYcagf.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 800;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYfqgfBlw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 800;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYf6gfBlw.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 800;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYcagf.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 900;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYfqgfBlw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 900;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYf6gfBlw.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: italic;
+  font-weight: 900;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mz1nxpEtL3pXiAulR5mL129FhZmLj7I4oiSUJYcagf.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 100;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQtoc7Ab.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 100;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQpoc7Ab.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 100;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQRocw.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 200;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQtoc7Ab.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 200;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQpoc7Ab.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 200;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQRocw.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 300;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQtoc7Ab.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 300;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQpoc7Ab.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 300;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQRocw.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 400;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQtoc7Ab.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 400;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQpoc7Ab.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 400;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQRocw.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 500;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQtoc7Ab.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 500;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQpoc7Ab.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 500;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQRocw.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 600;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQtoc7Ab.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 600;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQpoc7Ab.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 600;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQRocw.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 700;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQtoc7Ab.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 700;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQpoc7Ab.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 700;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQRocw.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 800;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQtoc7Ab.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 800;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQpoc7Ab.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 800;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQRocw.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 900;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQtoc7Ab.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 900;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQpoc7Ab.woff2) format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Texturina';
+  font-style: normal;
+  font-weight: 900;
+  font-display: fallback;
+  src: url(https://fonts.wp.com/s/texturina/v22/c4mx1nxpEtL3pXiAulRTkY-HGmNEX1b9NspjGQRocw.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+</style>
+<link rel="icon" href="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png?w=32" sizes="32x32">
+<link rel="icon" href="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png?w=192" sizes="192x192">
+<link rel="apple-touch-icon" href="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png?w=180">
+<meta name="msapplication-TileImage" content="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png?w=270">
+<link rel="stylesheet" type="text/css" id="gravatar-card-css" href="https://0.gravatar.com/dist/css/hovercard.min.css?ver=2023217348cad7c56c8cda123c6ffcde4518c6c17c856dc25ccd8742cd93ebc136a2f4"><link rel="stylesheet" type="text/css" id="gravatar-card-services-css" href="https://0.gravatar.com/dist/css/services.min.css?ver=2023217348cad7c56c8cda123c6ffcde4518c6c17c856dc25ccd8742cd93ebc136a2f4"><link href="https://s0.wp.com/wp-content/mu-plugins/actionbar/actionbar.css?v=20210915" type="text/css" rel="stylesheet"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&amp;display=swap" class="wtd-font"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded" class="wtd-font"><script src="https://secure.gravatar.com/f84fc4268359f6efbc88a8d040c02f31.json?callback=Gravatar.fetch_profile_callback" type="text/javascript"></script></head><body class="page-template-default page page-id-1 logged-in admin-bar no-customize-support wp-custom-logo wp-embed-responsive customizer-styles-applied jetpack-reblog-enabled highlander-enabled highlander-light has-marketing-bar has-marketing-bar-theme-attar" bis_register="W3sibWFzdGVyIjp0cnVlLCJleHRlbnNpb25JZCI6ImVwcGlvY2VtaG1ubGJoanBsY2drb2ZjaWllZ29tY29uIiwiYWRibG9ja2VyU3RhdHVzIjp7IkRJU1BMQVkiOiJkaXNhYmxlZCIsIkZBQ0VCT09LIjoiZGlzYWJsZWQiLCJUV0lUVEVSIjoiZGlzYWJsZWQiLCJSRURESVQiOiJkaXNhYmxlZCJ9LCJ2ZXJzaW9uIjoiMS45LjEwIiwic2NvcmUiOjEwOTEwfV0=" cz-shortcut-listen="true">
+
+
+		
+
+	
+<script type="text/javascript">
+/* <![CDATA[ */
+(function() {
+	function init() {
+		document.addEventListener( 'load', function() {
+			// hack to hide the gravatar hovercard
+			document.querySelectorAll( '#wpadminbar img.grav-hashed' ).forEach( function (el) {
+				el.classList.remove( 'grav-hashed' );
+			} );
+		} )
+
+		// debug bar extra
+		window.clickDebugLink = function( parentId, obj ) {
+			if ( ! window.jQuery ) {
+				return;
+			}
+			var $ = window.jQuery;
+
+			$( '#' + parentId ).children( 'div' ).hide();
+
+			document.getElementById( obj.href.substr( obj.href.indexOf( '#' ) + 1 ) ).style.display = 'block';
+			$( obj.href.substr( obj.href.indexOf( '#' ) ) ).show()
+
+			$( obj ).parent().addClass( 'current' ).siblings( 'li' ).removeClass( 'current' );
+
+			return false;
+		};
+	}
+
+	if ( document.readyState !== 'loading' ) {
+		init();
+	} else {
+		document.addEventListener( 'DOMContentLoaded', init );
+	}
+})();
+/* ]]> */
+</script>
+	<div class="wpcom-bubble action-bubble" bis_skin_checked="1">
+		<div class="bubble-txt" bis_skin_checked="1"></div>
+	</div>
+	<script type="text/javascript">
+	function hideBubble() {
+		var bubble = document.querySelector( 'div.wpcom-bubble' );
+		if ( ! bubble ) {
+			return;
+		}
+		bubble.parentElement.removeChild( bubble );
+
+		bubble = document.createElement( 'div' );
+		bubble.classList.add( 'wpcom-bubble' );
+		bubble.classList.add( 'action-bubble' );
+		bubble.innerHTML = '<div class="bubble-txt"></div>';
+		document.body.appendChild( bubble );
+	}
+	</script>
+		<script type="text/javascript">
+		(function () {
+			'use strict';
+
+			var isShowing = false;
+
+			document.querySelectorAll( '#wp-admin-bar-jumptotop-button-menu a' ).forEach( function ( el ) {
+				el.addEventListener( 'click', function ( e ) {
+					e.preventDefault();
+					if ( window.CSS && window.CSS.supports && window.CSS.supports( 'scroll-behavior', 'smooth' ) ) {
+						window.scroll( { top: 0, left: 0, behavior: 'smooth' } );
+					} else {
+						window.scroll( 0, 0 );
+					}
+				} );
+			} );
+
+			function hideShowButton() {
+				var jumpToTop = document.querySelector( '#jumptotop' );
+				if ( isShowing ) {
+					jumpToTop.style.transform = 'translateY( 0 )';
+				} else {
+					jumpToTop.style.transform = 'translateY( -50px )';
+				}
+			}
+
+			function hideShowTbJumpToTop() {
+				var total_width = 0;
+				// Calculate total width taken by items minus our button to see if it'll
+				// overlap with other toolbar menus.
+				document.querySelectorAll( '#wp-admin-bar-root-default > li' ).forEach( function( el ) {
+					if ( el.getAttribute( 'id' ) !== 'wp-admin-bar-jumptotop-button-menu' ) {
+						total_width += el.offsetWidth;
+					}
+				} );
+				var menu = document.querySelector( '#wp-admin-bar-jumptotop-button-menu' );
+				if ( ! menu ) {
+					return;
+				}
+
+				if ( menu.offsetLeft - total_width < 10 ) {
+					isShowing = false;
+				} else if ( window.scrollY >= 350 && ! isShowing ) {
+					if ( menu.offsetLeft - total_width < 10 ) {
+						return;
+					}
+					isShowing = true;
+				} else if ( window.scrollY < 1 && isShowing ) {
+					isShowing = false;
+				}
+				hideShowButton();
+			}
+
+			// handle on page load if auto scrolling to a position
+			hideShowTbJumpToTop();
+
+			// Bind to scroll event
+			var jumpToTopTimer = null;
+			window.addEventListener( 'scroll', function() {
+				clearTimeout( jumpToTopTimer );
+				jumpToTopTimer = setTimeout( hideShowTbJumpToTop, 150 );
+			}, { passive: true } );
+		})();
+	</script>
+	
+<div class="wp-site-blocks" bis_skin_checked="1"><header class="wp-block-template-part">
+<div class="wp-block-group gapless-group is-layout-constrained wp-block-group-is-layout-constrained" bis_skin_checked="1">
+<div class="wp-block-group alignfull site-header site-header-linear has-background is-horizontal is-content-justification-center is-nowrap is-layout-flex wp-container-6 wp-block-group-is-layout-flex" style="background-color:#f1eeea;padding-top:var(--wp--custom--gap--vertical);padding-bottom:var(--wp--custom--gap--vertical)" bis_skin_checked="1">
+<div class="wp-block-group site-brand is-horizontal is-content-justification-left is-layout-flex wp-container-3 wp-block-group-is-layout-flex" style="border-style:none;border-width:0px;border-radius:0px;padding-top:0;padding-right:0;padding-bottom:0;padding-left:0" bis_skin_checked="1"><div class="wp-block-site-logo is-layout-flow wp-block-site-logo-is-layout-flow" bis_skin_checked="1"><a href="https://nocturiis.github.io/lelotusdor/" class="custom-logo-link" rel="home"><img width="68" height="68" src="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png" class="custom-logo" alt="Le Lotus d'Or" decoding="async" srcset="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png?w=68&amp;h=68 68w, https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png?w=136&amp;h=136 136w" sizes="(max-width: 68px) 100vw, 68px" data-attachment-id="10" data-permalink="https://nocturiis.github.io/lelotusdor/design_sans_titre-removebg-preview/" data-orig-file="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png" data-orig-size="500,500" data-comments-opened="1" data-image-meta="{&quot;aperture&quot;:&quot;0&quot;,&quot;credit&quot;:&quot;&quot;,&quot;camera&quot;:&quot;&quot;,&quot;caption&quot;:&quot;&quot;,&quot;created_timestamp&quot;:&quot;0&quot;,&quot;copyright&quot;:&quot;&quot;,&quot;focal_length&quot;:&quot;0&quot;,&quot;iso&quot;:&quot;0&quot;,&quot;shutter_speed&quot;:&quot;0&quot;,&quot;title&quot;:&quot;&quot;,&quot;orientation&quot;:&quot;0&quot;}" data-image-title="Le Lotus d&amp;rsquo;Or Logo" data-image-description="" data-image-caption="" data-medium-file="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png?w=300" data-large-file="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png?w=500"></a></div>
+
+
+<div class="wp-block-group site-words-stack-small is-layout-flex wp-block-group-is-layout-flex" bis_skin_checked="1"><h1 class="has-text-color has-foreground-color wp-block-site-title"><a href="https://nocturiis.github.io/lelotusdor" target="_self" rel="home">Le Lotus d'Or</a></h1></div>
+</div>
+
+
+<nav class="has-text-color has-foreground-color is-responsive items-justified-right social-links wp-block-navigation is-horizontal is-content-justification-right is-layout-flex wp-container-5 wp-block-navigation-is-layout-flex" aria-label="Navigation"><button aria-haspopup="true" aria-label="Ouvrir le menu" class="wp-block-navigation__responsive-container-open " data-micromodal-trigger="modal-4"><svg width="24" height="24" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="7.5" width="16" height="1.5"></rect><rect x="4" y="15" width="16" height="1.5"></rect></svg></button>
+			<div class="wp-block-navigation__responsive-container  " style="" id="modal-4" bis_skin_checked="1">
+				<div class="wp-block-navigation__responsive-close" tabindex="-1" data-micromodal-close="" bis_skin_checked="1">
+					<div class="wp-block-navigation__responsive-dialog" aria-label="Menu" bis_skin_checked="1">
+							<button aria-label="Fermer le menu" data-micromodal-close="" class="wp-block-navigation__responsive-container-close"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M13 11.8l6.1-6.3-1-1-6.1 6.2-6.1-6.2-1 1 6.1 6.3-6.5 6.7 1 1 6.5-6.6 6.5 6.6 1-1z"></path></svg></button>
+						<div class="wp-block-navigation__responsive-container-content" id="modal-4-content" bis_skin_checked="1">
+							<ul class="wp-block-navigation__container"><li class=" wp-block-navigation-item wp-block-navigation-link"><a class="wp-block-navigation-item__content" href="https://nocturiis.github.io/lelotusdor/"><span class="wp-block-navigation-item__label">Home</span></a></li><li class=" wp-block-navigation-item current-menu-item wp-block-navigation-link"><a class="wp-block-navigation-item__content" href="https://nocturiis.github.io/lelotusdor/a-propos/" aria-current="page"><span class="wp-block-navigation-item__label">À propos</span></a></li><li class=" wp-block-navigation-item wp-block-navigation-link"><a class="wp-block-navigation-item__content" href="https://nocturiis.github.io/lelotusdor/carte"><span class="wp-block-navigation-item__label">Carte</span></a></li><li class=" wp-block-navigation-item current-menu-item wp-block-navigation-link"><a class="wp-block-navigation-item__content" href="https://nocturiis.github.io/lelotusdor/reserver" aria-current="page"><span class="wp-block-navigation-item__label">Réserver</span></a></li><li class=" wp-block-navigation-item wp-block-navigation-link"><a class="wp-block-navigation-item__content" href="https://nocturiis.github.io/lelotusdor/contact"><span class="wp-block-navigation-item__label">Contact</span></a></li></ul>
+						</div>
+					</div>
+				</div>
+			</div></nav></div>
+</div>
+</header>
+
+
+<div class="wp-block-group is-nowrap is-layout-flex wp-container-8 wp-block-group-is-layout-flex" bis_skin_checked="1"><h2 style="background-color:#ebe7e5;" class="has-background wp-block-post-title has-texturina-font-family">À propos</h2></div>
+
+
+
+<pre class="wp-block-preformatted has-background has-texturina-font-family" style="background-color:#ebe7e5"><strong>Bienvenue au Lotus d'Or !</strong>
+
+Le Lotus d'Or est un restaurant asiatique renommé, situé stratégiquement au cœur d'une ville animée. Nous sommes fiers de vous offrir une expérience gastronomique exceptionnelle, mettant en valeur la richesse des saveurs et des traditions culinaires de l'Asie.
+
+<strong>Notre histoire :</strong>
+Depuis notre ouverture, nous avons consolidé notre réputation en tant qu'établissement de premier choix pour les amateurs de cuisine asiatique. Notre passion commune pour les délices culinaires de l'Asie nous a poussés à créer le Lotus d'Or, un lieu où les convives peuvent s'immerger dans l'authenticité des saveurs asiatiques.
+
+<strong>Notre cuisine :</strong>
+Au Lotus d'Or, notre cuisine est le fruit du savoir-faire de nos chefs talentueux. Avec une connaissance approfondie des techniques de cuisine asiatique, ils mettent en valeur des ingrédients de première qualité pour créer des plats exquis, équilibrés et esthétiquement plaisants. Notre menu varié propose une sélection de mets inspirés de la Chine, du Japon, de la Thaïlande et d'autres pays asiatiques renommés, offrant ainsi une expérience culinaire complète.
+
+<strong>Notre ambiance :</strong>
+Le Lotus d'Or offre une atmosphère élégante et raffinée, où chaque détail est soigneusement pensé pour créer une expérience mémorable. Notre décor subtil et artistique évoque les éléments culturels de l'Asie, tandis que notre aménagement spacieux permet aux convives de profiter d'une intimité tout en savourant leur repas. Notre personnel attentif et courtois est formé pour offrir un service impeccable, garantissant ainsi que chaque visite est un moment inoubliable.
+
+<strong>Notre équipe :</strong>
+Nous sommes fiers de notre équipe dédiée, qui est animée par une passion commune pour la gastronomie asiatique. Nos employés, qu'il s'agisse de nos chefs talentueux ou de notre personnel de salle attentionné, sont formés pour fournir un service de haute qualité, attentif aux besoins spécifiques de chaque convive. Nous nous engageons à offrir une expérience client exceptionnelle et à dépasser les attentes de nos visiteurs les plus exigeants.
+
+<strong>Rejoignez-nous :</strong>
+Que vous soyez un amateur de cuisine asiatique averti ou que vous souhaitiez découvrir les délices culinaires de l'Asie, le Lotus d'Or est l'endroit idéal pour satisfaire vos papilles gustatives. Que ce soit pour un dîner d'affaires, une soirée romantique ou une célébration spéciale, notre restaurant vous promet une expérience culinaire mémorable, alliant saveurs exquises, service attentionné et ambiance élégante.
+
+<em>Nous vous invitons à nous rejoindre au Lotus d'Or et à découvrir le meilleur de la gastronomie asiatique dans un cadre raffiné et accueillant. Réservez dès maintenant et préparez-vous à être transporté dans un voyage culinaire inoubliable</em>!</pre>
+</div>
+<!-- wpcom_wp_footer -->
+
+		<style id="skip-link-styles">
+		.skip-link.screen-reader-text {
+			border: 0;
+			clip: rect(1px,1px,1px,1px);
+			clip-path: inset(50%);
+			height: 1px;
+			margin: -1px;
+			overflow: hidden;
+			padding: 0;
+			position: absolute !important;
+			width: 1px;
+			word-wrap: normal !important;
+		}
+
+		.skip-link.screen-reader-text:focus {
+			background-color: #eee;
+			clip: auto !important;
+			clip-path: none;
+			color: #444;
+			display: block;
+			font-size: 1em;
+			height: auto;
+			left: 5px;
+			line-height: normal;
+			padding: 15px 23px 14px;
+			text-decoration: none;
+			top: 5px;
+			width: auto;
+			z-index: 100000;
+		}
+	</style>
+		<script>
+	( function() {
+		var skipLinkTarget = document.querySelector( 'main' ),
+			sibling,
+			skipLinkTargetID,
+			skipLink;
+
+		// Early exit if a skip-link target can't be located.
+		if ( ! skipLinkTarget ) {
+			return;
+		}
+
+		// Get the site wrapper.
+		// The skip-link will be injected in the beginning of it.
+		sibling = document.querySelector( '.wp-site-blocks' );
+
+		// Early exit if the root element was not found.
+		if ( ! sibling ) {
+			return;
+		}
+
+		// Get the skip-link target's ID, and generate one if it doesn't exist.
+		skipLinkTargetID = skipLinkTarget.id;
+		if ( ! skipLinkTargetID ) {
+			skipLinkTargetID = 'wp--skip-link--target';
+			skipLinkTarget.id = skipLinkTargetID;
+		}
+
+		// Create the skip link.
+		skipLink = document.createElement( 'a' );
+		skipLink.classList.add( 'skip-link', 'screen-reader-text' );
+		skipLink.href = '#' + skipLinkTargetID;
+		skipLink.innerHTML = 'Aller au contenu principal';
+
+		// Inject the skip link.
+		sibling.parentElement.insertBefore( skipLink, sibling );
+	}() );
+	</script>
+	<script src="//0.gravatar.com/js/gprofiles.js?ver=2023217348cad7c56c8cda123c6ffcde4518c6c17c856dc25ccd8742cd93ebc136a2f4" id="grofiles-cards-js"></script>
+<script id="wpgroho-js-extra">
+var WPGroHo = {"my_hash":"f84fc4268359f6efbc88a8d040c02f31"};
+</script>
+<script crossorigin="anonymous" type="text/javascript" src="https://s0.wp.com/wp-content/mu-plugins/gravatar-hovercards/wpgroho.js?m=1610363240h"></script>
+
+	<script>
+		// Initialize and attach hovercards to all gravatars
+		( function() {
+			function init() {
+				if ( typeof Gravatar === 'undefined' ) {
+					return;
+				}
+
+				if ( typeof Gravatar.init !== 'function' ) {
+					return;
+				}
+
+				Gravatar.profile_cb = function ( hash, id ) {
+					WPGroHo.syncProfileData( hash, id );
+				};
+
+				Gravatar.my_hash = WPGroHo.my_hash;
+				Gravatar.init( 'body', '#wp-admin-bar-my-account' );
+			}
+
+			if ( document.readyState !== 'loading' ) {
+				init();
+			} else {
+				document.addEventListener( 'DOMContentLoaded', init );
+			}
+		} )();
+	</script>
+
+		<div style="display:none" bis_skin_checked="1">
+	<div class="grofile-hash-map-f84fc4268359f6efbc88a8d040c02f31" bis_skin_checked="1">
+	</div>
+	</div>
+<script id="highlander-comments-js-extra">
+var HighlanderComments = {"loggingInText":"Connexion\u2026","submittingText":"Publication d\u2019un Commentaire\u2026","postCommentText":"Laisser un commentaire","connectingToText":"Connexion \u00e0 %s","commentingAsText":"%1$s: Vous commentez \u00e0 l\u2019aide de votre compte %2$s.","logoutText":"Se d\u00e9connecter","loginText":"Se connecter","connectURL":"https:\/\/nocturiis.github.io/lelotusdor\/public.api\/connect\/?action=request","logoutURL":"https:\/\/nocturiis.github.io/lelotusdor\/wp-login.php?action=logout&_wpnonce=fc70db81a4","homeURL":"https:\/\/nocturiis.github.io/lelotusdor\/","postID":"1","gravDefault":"identicon","enterACommentError":"Entrez un commentaire","enterEmailError":"Veuillez entrer votre adresse mail","invalidEmailError":"Adresse e-mail invalide","enterAuthorError":"Veuillez entrer votre nom","gravatarFromEmail":"L\u2019image s\u2019affiche lorsque vous postez un commentaire. Cliquez pour personnaliser.","logInToExternalAccount":"Connectez-vous pour utiliser les informations li\u00e9es \u00e0 un de ces comptes:","change":"Changer","changeAccount":"Changer de compte","comment_registration":"0","userIsLoggedIn":"1","isJetpack":"","text_direction":"ltr"};
+</script>
+<script crossorigin="anonymous" type="text/javascript" src="https://s0.wp.com/_static/??/wp-content/js/textarea-autosize.min.js,/wp-content/mu-plugins/highlander-comments/script.js?m=1663141412j"></script>
+	
+	
+<script>
+window.addEventListener( "load", function( event ) {
+	var link = document.createElement( "link" );
+	link.href = "https://s0.wp.com/wp-content/mu-plugins/actionbar/actionbar.css?v=20210915";
+	link.type = "text/css";
+	link.rel = "stylesheet";
+	document.head.appendChild( link );
+
+	var script = document.createElement( "script" );
+	script.src = "https://s0.wp.com/wp-content/mu-plugins/actionbar/actionbar.js?v=20220329";
+	script.defer = true;
+	document.body.appendChild( script );
+} );
+</script>
+
+	<link crossorigin="anonymous" rel="stylesheet" id="screen-css-0-3" href="https://s0.wp.com/wp-content/blog-plugins/launch-banner/style.css?m=1684506546h&amp;cssminify=yes" type="text/css" media="screen">
+<script id="comment-like-js-extra">
+var comment_like_text = {"loading":"chargement\u2026","swipeUrl":"https:\/\/s0.wp.com\/wp-content\/mu-plugins\/comment-likes\/js\/lib\/swipe.js?ver=20131008"};
+</script>
+<script type="text/javascript">
+const launchBarUserData = {"blogId":219232838}
+</script>
+<script crossorigin="anonymous" type="text/javascript" src="https://s0.wp.com/_static/??-eJyNjVkOwjAMBS9EGhaBygfiLKkbtU4TJ8rScnxcEFAESPxZfjMaOQUBnrKmLE2SrR4RdLhUJq0kT0hgS6vTvPV+1BFvqDCpckjfKNXyIBoVl8Cj4IoItnRIC4538E68vN8Oc26uWxzusbfHXzGnUtaRL5GjguFDaqzvnppVhaBnj0hHmSBiyCyc3WlzqLf7+rhb1+YKnbF2sA=="></script>
+
+	<div id="ab-reblog-box" style="display:none;" bis_skin_checked="1">
+		<form action="" name="reblog">
+			<textarea id="reblog-content" name="reblog-content" placeholder="Ajoutez votre grain de sel personnel... (facultatif)" style="height: 62px;"></textarea>
+			<div class="reblog-footer" bis_skin_checked="1">
+				<div class="dropdown-container" bis_skin_checked="1">
+					<button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+						Publier sur <span class="selected-site">Le Lotus d'Or</span>
+						<span class="arrow-container">
+							
+						</span>
+					<svg class="arrow" fill="none" height="12" viewBox="0 0 12 12" width="12" xmlns="http://www.w3.org/2000/svg">
+								<path clip-rule="evenodd" d="m5.96087 7.68078-4.12055-4.18078-.84032.97158 5 5.02842 5-5.04912-.8813-.93023z" fill="#a7aaad" fill-rule="evenodd"></path>
+							</svg></button>
+					<ul class="dropdown-menu" role="menu" hidden="">
+																				<li role="option" data-id="219232838" tabindex="0" class="selected">
+								<img src="https://lelotusdor.files.wordpress.com/2023/05/design_sans_titre-removebg-preview.png?w=64" alt="Icône du site">
+								<div class="site-desc" bis_skin_checked="1">
+									<strong>Le Lotus d'Or</strong>
+									<span>nocturiis.github.io/lelotusdor</span>
+								</div>
+							</li>
+																				<li role="option" data-id="219267214" tabindex="0">
+								<img src="https://aquaconnect.files.wordpress.com/2023/05/aquaconnect-logo.png?w=64" alt="Icône du site">
+								<div class="site-desc" bis_skin_checked="1">
+									<strong>Aqua Connect</strong>
+									<span>aquaconnect.wordpress.com</span>
+								</div>
+							</li>
+											</ul>
+					<input type="hidden" name="to_blog_id" id="reblog-to-blog-id" value="219232838">
+				</div>
+
+				<div class="submit" bis_skin_checked="1">
+					<span class="canceltext"><a href="" class="cancel" tabindex="0">Annuler</a></span>
+					<input type="submit" name="reblog-submit" class="button-primary" id="reblog-submit" value="Reblog">
+					<input type="hidden" id="original-blog-id" value="219232838">
+					<input type="hidden" id="original-post-id" value="1">
+				</div>
+			</div>
+
+			<input type="hidden" id="_wpnonce" name="_wpnonce" value="31caf41b2b"><input type="hidden" name="_wp_http_referer" value="/a-propos/">		</form>
+
+		<div class="arrow" bis_skin_checked="1"></div>
+	</div>
+
+	<script type="text/javascript">
+		(function () {
+			function isVisible(selector) {
+				const el = document.querySelector(selector);
+				return el && getComputedStyle(el).getPropertyValue('display') !== 'none';
+			}
+
+			function hide(el) {
+				if (el && el.style) {
+					el.style.display = 'none';
+				}
+			}
+
+			function show(el) {
+				if (el && el.style) {
+					el.style.removeProperty('display');
+				}
+			}
+
+			function getValue(selector) {
+				const el = document.querySelector(selector);
+				return el ? el.value : undefined;
+			}
+
+			document.addEventListener('DOMContentLoaded', function () {
+				const dropdownToggle = document.querySelector('#ab-reblog-box .reblog-footer .dropdown-toggle');
+				const dropdownMenu = document.querySelector('#ab-reblog-box .reblog-footer .dropdown-menu');
+
+				if ( ! dropdownToggle || ! dropdownMenu ) {
+					return;
+				}
+
+				const arrow = dropdownToggle.querySelector('.arrow');
+				const menuItems = dropdownMenu.querySelectorAll('li');
+				// Let selectedItem be the selected option or the first item in the list as a fallback
+				const preselected = dropdownMenu.querySelector('li.selected');
+				let selectedItem = (preselected) ? preselected : menuItems[0];
+				updateDropdownButton(selectedItem);
+				// Click event listener for dropdown toggle
+				dropdownToggle.addEventListener('click', function (e) {
+					e.preventDefault();
+
+					const isVisible = dropdownMenu.classList.toggle('dropdown-visible');
+					arrow.classList.toggle('arrow-rotate');
+
+					if (isVisible) {
+						dropdownMenu.removeAttribute('hidden');
+						dropdownToggle.setAttribute('aria-expanded', 'true');
+
+						const menuRect = dropdownMenu.getBoundingClientRect();
+						const windowHeight = window.innerHeight;
+						const maxMenuHeight = 200;
+						if (menuRect.bottom + maxMenuHeight > windowHeight) {
+							dropdownMenu.style.animation = 'reblogCascadeReverse 0.3s ease forwards';
+							dropdownMenu.style.transformOrigin = 'bottom';
+							dropdownMenu.style.top = 'auto';
+							dropdownMenu.style.bottom = 'calc(100% - 15px)';
+						} else {
+							dropdownMenu.style.animation = 'reblogCascade 0.3s ease forwards';
+							dropdownMenu.style.transformOrigin = 'top';
+							dropdownMenu.style.top = '100%';
+							dropdownMenu.style.bottom = 'auto';
+						}
+					} else {
+						dropdownMenu.setAttribute('hidden', '');
+						dropdownToggle.setAttribute('aria-expanded', 'false');
+					}
+				});
+				// Add click event listener for menu items
+				menuItems.forEach((item) => {
+					item.addEventListener('click', function () {
+						dropdownSelect(item);
+						dropdownClose();
+					});
+					item.addEventListener('keyup', function (event) {
+						if (event.key === 'Enter' || event.key === ' ') {
+							dropdownSelect(item);
+							dropdownClose();
+						}
+					});
+				});
+				// Close dropdown if user clicks outside of it
+				document.addEventListener('click', function (event) {
+					if (!dropdownToggle.contains(event.target) && !dropdownMenu.contains(event.target)) {
+						dropdownClose();
+					}
+				});
+				// Close dropdown if user presses escape key, clicks out, or makes a selection
+				function dropdownClose() {
+					dropdownMenu.classList.remove('dropdown-visible');
+					dropdownMenu.setAttribute('hidden', '');
+					dropdownToggle.setAttribute('aria-expanded', 'false');
+					arrow.classList.remove('arrow-rotate');
+				}
+				function dropdownSelect(el) {
+					selectedItem = el;
+					updateDropdownButton(selectedItem);
+					// Add selected class to selected item and remove from others
+					menuItems.forEach((item) => {
+						item.classList.remove('selected');
+					});
+				}
+				// Update dropdown button text and add arrow
+				function updateDropdownButton(item) {
+					item.classList.add('selected');
+					const text = item.querySelector('strong').textContent;
+					dropdownToggle.querySelector('.selected-site').textContent = text;
+					dropdownToggle.appendChild(arrow);
+					// Get data-id attribute of selected item and set it as the value of the hidden input
+					const selectedId = selectedItem.getAttribute('data-id');
+					const hiddenInput = document.querySelector('#reblog-to-blog-id');
+					hiddenInput.value = selectedId;
+				}
+			});
+
+			var wpcom_reblog = {
+				abortController: null,
+				source: 'toolbar',
+
+				init: function () {
+					document.addEventListener('click', e => {
+						// Click cancel reblog button
+						if (e.target.matches('#ab-reblog-box a.cancel')) {
+							e.preventDefault();
+							wpcom_reblog.cancel_reblog();
+							// Move focus back to .post-likes-widget iframe
+							document.querySelector('.post-likes-widget').contentWindow.focus();
+							return;
+						}
+
+						// Submit reblog box
+						if (e.target.matches('#ab-reblog-box input[type=submit]')) {
+							e.preventDefault();
+							wpcom_reblog.submit_reblog(e.target);
+							return;
+						}
+					});
+					// Increase height of textarea as content is added
+					document.addEventListener('DOMContentLoaded', function() {
+						const textarea = document.getElementById('reblog-content');
+						if ( ! textarea ) {
+							return;
+						}
+						const updateHeight = () => {
+							// Reset the textarea height to 'auto' to get the scroll height correctly
+							textarea.style.height = 'auto';
+							// Default to min height to avoid a jump when the textarea has one line of text
+							const scrollHeight = (textarea.scrollHeight < 62) ? '62' : textarea.scrollHeight;
+							textarea.style.height = scrollHeight + 'px';
+						};
+						// Update the textarea height initially
+						updateHeight();
+						// Update the textarea height whenever its content changes
+						textarea.addEventListener('input', updateHeight);
+						// Ensure we can see the whole reblog box
+						wpcom_reblog.move_into_view();
+					});
+					// On window resize, ensure we can see the whole reblog box
+					window.addEventListener('resize', (function() {
+						let timeout;
+						return function() {
+							clearTimeout(timeout);
+							timeout = setTimeout(() => {
+								// Vertically move into view if the reblog box is visible
+								wpcom_reblog.move_into_view();
+								// Readjust horizontal position if the reblog box is visible
+								if (isVisible('#ab-reblog-box')) {
+									let obj_id = document.querySelector('.jetpack-likes-widget-wrapper').dataset.name.replace('like-post-frame-', '');
+									let post_id = document.querySelector('#original-post-id').value;
+									wpcom_reblog.show_reblog_box_flair(obj_id, post_id);
+								}
+							}, 200);
+						};
+					})());
+				},
+
+				move_into_view: function () {
+					let reblogBox = document.getElementById('ab-reblog-box');
+					if (CSS.supports('scroll-behavior', 'smooth')) {
+						reblogBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+					} else {
+						reblogBox.scrollIntoView();
+					}
+				},
+
+				toggle_reblog_box_flair: function (obj_id, post_id) {
+					if (isVisible('#jp-post-flair #ab-reblog-box')) {
+						wpcom_reblog.cancel_reblog();
+					} else {
+						wpcom_reblog.show_reblog_box_flair(obj_id, post_id);
+					}
+				},
+
+				show_reblog_box_flair: function (obj_id, post_id) {
+					this.source = 'post_flair';
+					this.obj_id = obj_id;
+					const querySelector = '[name=like-post-frame-' + obj_id + ']';
+					return this.show_reblog_box_here(querySelector, 'body', post_id);
+				},
+
+				show_reblog_box_here: function (anchorId, parentId, post_id) {
+					const reblogBox = document.querySelector('#ab-reblog-box');
+					const anchor = document.querySelector(anchorId);
+					const parent = document.querySelector(parentId);
+					const originalPostId = document.querySelector('#original-post-id');
+
+					originalPostId.value = post_id;
+
+					if (!anchor || !parent || !reblogBox) {
+						return;
+					}
+
+					const anchorRect = anchor.getBoundingClientRect();
+					const offset = {
+						top: anchorRect.top + window.scrollY,
+						left: anchorRect.left + window.scrollX,
+					};
+
+					let left = `${offset.left}px`;
+					let position;
+					let top;
+
+					if (getComputedStyle(parent).getPropertyValue('position') === 'fixed') {
+						position = 'fixed';
+						const rect = parent.getBoundingClientRect();
+						top = `${rect.top + rect.height - 16}px`;
+					} else {
+						position = 'absolute';
+						top = `${offset.top + anchorRect.height - 16}px`;
+					}
+					reblogBox.remove();
+					parent.appendChild(reblogBox);
+					anchor.classList.add('selected');
+
+					if (window.innerWidth < offset.left + 500) {
+						// Most likely mobile or tablet
+						left = '20px';
+					}
+
+					reblogBox.querySelectorAll('p.response').forEach(el => el.remove);
+					reblogBox.querySelectorAll('div.submit, div.submit span.canceltext').forEach(el => show(el));
+					reblogBox
+						.querySelectorAll('div.submit input[type=submit]')
+						.forEach(el => el.removeAttribute('disabled'));
+
+					reblogBox.style.display = 'block';
+					reblogBox.style.top = top;
+					reblogBox.style.left = left;
+					reblogBox.style.position = position;
+					reblogBox.style.zIndex = 10; // slide under twentyfourteen's fixed-positioned masthead
+
+					// Ensure we can see the whole reblog box
+					this.move_into_view();
+
+					// Move focus into reblog popup
+					reblogBox.querySelector('textarea').focus();
+				},
+
+				submit_reblog: function (input) {
+					const reblogContext = this;
+
+					if (this.abortController) {
+						this.abortController.abort();
+					}
+
+					const controller = window.AbortController ? new AbortController() : null;
+					const signal = controller && controller.signal;
+
+					input.setAttribute('value', 'Reblogging...');
+					input.disabled = true;
+
+					const cancelText = document.querySelector('#ab-reblog-box div.submit span.canceltext');
+					hide(cancelText);
+					const spinner = document.createElement('span');
+					spinner.classList.add('spinner');
+					input.before(spinner);
+
+					let note = getValue('#ab-reblog-box textarea');
+					if (getValue('#default-reblog-note') === note) {
+						note = '';
+					}
+
+					const params = new URLSearchParams({
+						action: 'post_reblog',
+						original_blog_id: getValue('#original-blog-id'),
+						original_post_id: getValue('#original-post-id'),
+						blog_id: getValue('#ab-reblog-box #reblog-to-blog-id'),
+						note: note,
+						_wpnonce: getValue('#ab-reblog-box #_wpnonce'),
+						reblog_source: this.source,
+					});
+
+					const fetchOptions = {
+						method: 'GET',
+						headers: {
+							'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+							'X-Requested-With': 'XMLHttpRequest',
+							Accept: 'application/json',
+							'cache-control': 'no-cache',
+							pragma: 'no-cache',
+						},
+					};
+
+					if (signal) {
+						fetchOptions.signal = signal;
+						this.abortController = controller;
+					}
+
+					fetch(`/wp-admin/admin-ajax.php?${params.toString()}`, fetchOptions)
+						.then(response => response.text())
+						.then(text => {
+							let result;
+							this.abortController = null;
+							try {
+								result = JSON.parse(text);
+							} catch (e) {
+								// Do nothing.
+							}
+							if (!result || !('type' in result)) {
+								throw new Error('Error: ' + text);
+							} else if (result.type === 'error') {
+								throw new Error(result.message);
+							} else {
+								const target = window.frames['likes-master'];
+								if (target && typeof target.postMessage === 'function') {
+									try {
+										target.postMessage(
+											JSON.stringify({
+												type: 'likesMessage',
+												data: { event: 'didReblog', obj_id: reblogContext.obj_id },
+											}),
+											'*'
+										);
+									} catch (err) {
+										// Do nothing.
+									}
+								}
+
+								hide(document.querySelector('#ab-reblog-box'));
+							}
+						})
+						.catch(err => {
+							if ( err && err.name === 'AbortError' ) {
+								// Request was aborted and a new one was started.
+							} else {
+								alert(err);
+								this.cancel_reblog();
+							}
+						})
+						.finally( () => {
+							input.setAttribute('value', 'Reblog');
+							spinner.remove();
+						});
+				},
+
+				cancel_reblog: function () {
+					hide(document.querySelector('#ab-reblog-box'));
+				},
+			};
+
+			window.wpcom_reblog = wpcom_reblog;
+			wpcom_reblog.init();
+		})();
+	</script>
+<script type="text/javascript">
+// <![CDATA[
+(function() {
+try{
+  if ( window.external &&'msIsSiteMode' in window.external) {
+    if (window.external.msIsSiteMode()) {
+      var jl = document.createElement('script');
+      jl.type='text/javascript';
+      jl.async=true;
+      jl.src='/wp-content/plugins/ie-sitemode/custom-jumplist.php';
+      var s = document.getElementsByTagName('script')[0];
+      s.parentNode.insertBefore(jl, s);
+    }
+  }
+}catch(e){}
+})();
+// ]]>
+</script><script src="//stats.wp.com/w.js?63" defer=""></script> <script type="text/javascript">
+_tkq = window._tkq || [];
+_stq = window._stq || [];
+_tkq.push(['identifyUser', 235499531, 'graphicsentersociety']);
+_tkq.push(['storeContext', {'blog_id':'219232838','blog_tz':'2','user_lang':'fr','blog_lang':'fr'}]);
+_stq.push(['view', {'blog':'219232838','v':'wpcom','tz':'2','user':'1','user_id':'235499531','post':'1','subd':'lelotusdor'}]);
+_stq.push(['extra', {'crypt':'UE40eW5QN0p8M2Y/RE1mJVY3bm9aR3VCbS9mWm1pRyZuJS1LX1t5QmRXZzE3RC9rQWZHK1FjbDltdWdaMVFFZTcxUGVHLWR0WTJoP0VxV3JrTkRBTGxHQVtidUU0dy1VaDRTM3B2Kz9JOFVEZHMlV1NBS3l8Z3xhZ0IvcSxjK1hXPSVkcDIzLi0/RnlHd2RqYjg2YlRxUyZSLjZMeiwuSnkxR1ZbPSsmQltiX1JCWnBMKzh0RD1JSVU9Q0FpOW9pWTBwZT9iNy9OOV1KTWllS3kyWmpfSmRGcXhEL0R6Uzd6Zk09dTJGZDBE'}]);
+	</script>
+<noscript><img src="https://pixel.wp.com/b.gif?v=noscript" style="height:1px;width:1px;overflow:hidden;position:absolute;bottom:1px;" alt="" /></noscript>
+<script defer="" id="bilmur" data-customproperties="{&quot;jsconcat_abtest&quot;:&quot;0&quot;,&quot;logged_in&quot;:&quot;1&quot;,&quot;wptheme&quot;:&quot;pub\/attar&quot;,&quot;wptheme_is_block&quot;:&quot;1&quot;}" data-provider="wordpress.com" data-service="simple" src="/wp-content/js/bilmur.min.js?i=7&amp;m=202321"></script><script>
+if ( 'object' === typeof wpcom_mobile_user_agent_info ) {
+
+	wpcom_mobile_user_agent_info.init();
+	var mobileStatsQueryString = "";
+	
+	if( false !== wpcom_mobile_user_agent_info.matchedPlatformName )
+		mobileStatsQueryString += "&x_" + 'mobile_platforms' + '=' + wpcom_mobile_user_agent_info.matchedPlatformName;
+	
+	if( false !== wpcom_mobile_user_agent_info.matchedUserAgentName )
+		mobileStatsQueryString += "&x_" + 'mobile_devices' + '=' + wpcom_mobile_user_agent_info.matchedUserAgentName;
+	
+	if( wpcom_mobile_user_agent_info.isIPad() )
+		mobileStatsQueryString += "&x_" + 'ipad_views' + '=' + 'views';
+
+	if( "" != mobileStatsQueryString ) {
+		new Image().src = document.location.protocol + '//pixel.wp.com/g.gif?v=wpcom-no-pv' + mobileStatsQueryString + '&baba=' + Math.random();
+	}
+	
+}
+</script>
+
+<iframe style="display:none" class="jetpack-notes-cookie-check" src="https://widgets.wp.com/3rd-party-cookie-check/index.html" bis_size="{&quot;x&quot;:0,&quot;y&quot;:337,&quot;w&quot;:0,&quot;h&quot;:0,&quot;abs_x&quot;:0,&quot;abs_y&quot;:337}"></iframe><div class="comment-likes-overlay" style="display: none;" bis_skin_checked="1"></div><script>(async () => {
+    class WtdRoot extends HTMLElement {
+      constructor() {
+        super();
+        
+this.attachShadow({ mode: 'open' });
+      }
+    }
+
+    window.customElements.define('wtd-root', WtdRoot);
+  })();</script><script>(async () => {
+    class WtdDiv extends HTMLElement {
+      constructor() {
+        super();
+        
+      }
+    }
+
+    window.customElements.define('wtd-div', WtdDiv);
+  })();</script><script>window.wtdExtensionInjected = true</script><wtd-div id="wanteeedContainer" style="position: fixed; display: block; top: 0px; right: 0px; z-index: 2147483647;"><wtd-root id="comparator"></wtd-root><iframe id="wanteeedPanel" data-version="1.57.3" allowtransparency="true" style="background-color: rgb(255, 255, 255); border: none; border-radius: 3px; box-shadow: rgb(181, 181, 181) 1px 1px 3px 2px; clip: auto; display: none; margin-left: auto; margin-right: 12px; margin-top: 12px; position: relative; z-index: 2147483647; height: 1px; width: 1px;"></iframe></wtd-div><script src="https://s0.wp.com/wp-content/mu-plugins/actionbar/actionbar.js?v=20220329" defer=""></script><iframe id="wanteeedTestMaker" data-version="1.57.3" allowtransparency="true" style="border: none; clip: auto; display: none; left: 0px; overflow: hidden; position: fixed; top: 10px; transition: all 0.2s ease-out 0s; z-index: 45739864; height: 1px; width: 1px;"></iframe><link href="https://fonts.googleapis.com" rel="preconnect"><link href="https://fonts.gstatic.com" rel="preconnect" crossorigin=""></body></html>
